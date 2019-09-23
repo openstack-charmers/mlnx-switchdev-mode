@@ -6,7 +6,7 @@ Before=networking.service openvswitch-switch.target
 [Service]
 Type=oneshot
 KillMode=none
-ExecStart=/usr/bin/mlnx-switchdev-mode
+ExecStart=/usr/bin/mlnx-switchdev-mode switch
 TimeoutSec=0
 
 [Install]

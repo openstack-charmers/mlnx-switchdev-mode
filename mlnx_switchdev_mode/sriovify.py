@@ -32,7 +32,7 @@ class PCIDevice(object):
         return os.path.exists(self.subpath('physfn'))
 
     @property
-    def vf_addrs(self) -> list[str]:
+    def vf_addrs(self) -> list:
         vf_addrs = []
         i = 0
         while True:
@@ -50,7 +50,7 @@ class PCIDevice(object):
         return vf_addrs
 
     @property
-    def vfs(self) -> list[object]:
+    def vfs(self) -> list:
         return [PCIDevice(addr) for addr in self.vf_addrs]
 
     def devlink_get(self, obj_name: str):
