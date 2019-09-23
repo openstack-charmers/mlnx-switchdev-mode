@@ -53,7 +53,7 @@ class PCIDevice(object):
     def vfs(self) -> list[object]:
         return [PCIDevice(addr) for addr in self.vf_addrs]
 
-    def devlink_get(self, obj_name):
+    def devlink_get(self, obj_name: str):
         out = subprocess.check_output(
             ['/sbin/devlink', 'dev', obj_name,
              'show', 'pci/{}'.format(self.pci_addr),
@@ -61,7 +61,7 @@ class PCIDevice(object):
         )
         return json.loads(out)['dev']['pci/{}'.format(self.pci_addr)]
 
-    def devlink_set(self, obj_name, prop, value):
+    def devlink_set(self, obj_name: str, prop: str, value: str):
         subprocess.check_call(
             ['/sbin/devlink', 'dev', obj_name,
              'set', 'pci/{}'.format(self.pci_addr),
