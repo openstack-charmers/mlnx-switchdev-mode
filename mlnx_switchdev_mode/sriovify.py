@@ -110,6 +110,7 @@ def netdev_get_driver(netdev: str) -> str:
 
 
 def show():
+    """Show details of all installed network adapters"""
     pci_to_netdev = build_pci_to_netdev()
     for pci, netdev in sorted(pci_to_netdev.items()):
         suffix = ''
@@ -123,6 +124,7 @@ def show():
 
 
 def switch():
+    """Configure capable devices into switchdev mode"""
     for pci_addr in os.listdir('/sys/bus/pci/devices'):
         pcidev = PCIDevice(pci_addr)
         if pcidev.is_pf and pcidev.driver == 'mlx5_core':
@@ -150,13 +152,13 @@ def main():
     )
     show_subparser = subparsers.add_parser(
         'show',
-        help='Show details of installed network cards'
+        help='Show details of installed network adapters'
     )
     show_subparser.set_defaults(func=show)
 
     switch_subparser = subparsers.add_parser(
         'switch',
-        help='Switch switchdev capable cards to switchdev mode'
+        help='Switch switchdev capable network adapters to switchdev mode'
     )
     switch_subparser.set_defaults(func=switch)
 
