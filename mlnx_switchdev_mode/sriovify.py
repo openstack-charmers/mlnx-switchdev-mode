@@ -1,36 +1,38 @@
 #!/usr/bin/env python
 
+import argparse
 import json
+import logging
 import os
 import subprocess
 
 
 class PCIDevice(object):
 
-    def __init__(self, pci_addr):
+    def __init__(self, pci_addr: str):
         self.pci_addr = pci_addr
 
     @property
-    def path(self):
+    def path(self) -> str:
         return '/sys/bus/pci/devices/{}'.format(self.pci_addr)
 
-    def subpath(self, subpath):
+    def subpath(self, subpath: str) -> str:
         return '{}/{}'.format(self.path, subpath)
 
     @property
-    def driver(self):
+    def driver(self) -> str:
         return os.path.basename(os.readlink(self.subpath('driver')))
 
     @property
-    def is_pf(self):
+    def is_pf(self) -> bool:
         return os.path.exists(self.subpath('sriov_numvfs'))
 
     @property
-    def is_vf(self):
+    def is_vf(self) -> bool:
         return os.path.exists(self.subpath('physfn'))
 
     @property
-    def vf_addrs(self):
+    def vf_addrs(self) -> list[str]:
         vf_addrs = []
         i = 0
         while True:
@@ -48,7 +50,7 @@ class PCIDevice(object):
         return vf_addrs
 
     @property
-    def vfs(self):
+    def vfs(self) -> list[object]:
         return [PCIDevice(addr) for addr in self.vf_addrs]
 
     def devlink_get(self, obj_name):
@@ -67,11 +69,11 @@ class PCIDevice(object):
         )
 
 
-def netdev_sys(netdev, path):
+def netdev_sys(netdev: str, path: str) -> str:
     return os.path.join('/sys/class/net', netdev, path)
 
 
-def build_pci_to_netdev():
+def build_pci_to_netdev() -> dict:
     pci_to_netdev = {}
     for netdev in os.listdir('/sys/class/net'):
         try:
@@ -84,32 +86,31 @@ def build_pci_to_netdev():
     return pci_to_netdev
 
 
-def netdev_is_pf(netdev):
+def netdev_is_pf(netdev: str) -> bool:
     try:
         return os.path.exists(netdev_sys(netdev, 'device/sriov_numvfs'))
     except (FileNotFoundError, NotADirectoryError):
         return False
 
 
-def netdev_is_vf(netdev):
+def netdev_is_vf(netdev: str) -> bool:
     try:
         return os.path.exists(netdev_sys(netdev, 'device/physfn'))
     except (FileNotFoundError, NotADirectoryError):
         return False
 
 
-def netdev_get_pf_pci(netdev):
+def netdev_get_pf_pci(netdev: str) -> str:
     assert netdev_is_vf(netdev)
     return os.path.basename(os.readlink(netdev_sys(netdev, 'device/physfn')))
 
 
-def netdev_get_driver(netdev):
+def netdev_get_driver(netdev: str) -> str:
     return os.path.basename(os.readlink(netdev_sys(netdev, 'device/driver')))
 
 
-def main():
+def show():
     pci_to_netdev = build_pci_to_netdev()
-
     for pci, netdev in sorted(pci_to_netdev.items()):
         suffix = ''
         if netdev_is_pf(netdev):
@@ -120,6 +121,8 @@ def main():
         print('%s\t%s\t%s\t%s' % (pci, netdev,
                                   netdev_get_driver(netdev), suffix))
 
+
+def switch():
     for pci_addr in os.listdir('/sys/bus/pci/devices'):
         pcidev = PCIDevice(pci_addr)
         if pcidev.is_pf and pcidev.driver == 'mlx5_core':
@@ -135,3 +138,38 @@ def main():
                         with open('/sys/bus/pci/drivers/mlx5_core/bind',
                                   'wt') as f:
                             f.write(vf_addr)
+
+
+def main():
+    parser = argparse.ArgumentParser('mlnx-switchdev-mode')
+    parser.set_defaults(prog=parser.prog)
+    subparsers = parser.add_subparsers(
+        title="subcommands",
+        description="valid subcommands",
+        help="sub-command help",
+    )
+    show_subparser = subparsers.add_parser(
+        'show',
+        help='Show details of installed network cards'
+    )
+    show_subparser.set_defaults(func=show)
+
+    switch_subparser = subparsers.add_parser(
+        'switch',
+        help='Switch switchdev capable cards to switchdev mode'
+    )
+    switch_subparser.set_defaults(func=switch)
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG)
+
+    try:
+        args.func()
+    except Exception as e:
+        raise SystemExit(
+            '{prog}: {msg}'.format(
+                prog=args.prog,
+                msg=e,
+            )
+        )
