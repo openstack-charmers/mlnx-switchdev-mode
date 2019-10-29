@@ -1,2 +1,5 @@
+AUTHORS
+ChangeLog
 *.egg-info
 **/__pycache__
+dist
