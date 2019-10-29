@@ -24,6 +24,10 @@ class PCIDevice(object):
         return os.path.basename(os.readlink(self.subpath('driver')))
 
     @property
+    def bound(self) -> bool:
+        return os.path.exists(self.subpath('driver'))
+
+    @property
     def is_pf(self) -> bool:
         return os.path.exists(self.subpath('sriov_numvfs'))
 
@@ -67,6 +71,9 @@ class PCIDevice(object):
              'set', 'pci/{}'.format(self.pci_addr),
              prop, value]
         )
+
+    def __str__(self) -> str:
+        return self.pci_addr
 
 
 def netdev_sys(netdev: str, path: str) -> str:
@@ -128,18 +135,24 @@ def switch():
     for pci_addr in os.listdir('/sys/bus/pci/devices'):
         pcidev = PCIDevice(pci_addr)
         if pcidev.is_pf and pcidev.driver == 'mlx5_core':
-            print('{}: {}'.format(pcidev.pci_addr, pcidev.vfs))
-            if pcidev.vf_addrs:
+            print('{}: {}'.format(pcidev, pcidev.vfs))
+            if pcidev.vfs:
                 if pcidev.devlink_get('eswitch')['mode'] == 'legacy':
-                    for vf_addr in pcidev.vf_addrs:
-                        with open('/sys/bus/pci/drivers/mlx5_core/unbind',
-                                  'wt') as f:
-                            f.write(vf_addr)
-                    pcidev.devlink_set('eswitch', 'mode', 'switchdev')
-                    for vf_addr in pcidev.vf_addrs:
-                        with open('/sys/bus/pci/drivers/mlx5_core/bind',
-                                  'wt') as f:
-                            f.write(vf_addr)
+                    rebond = []
+                    try:
+                        for vf in pcidev.vfs:
+                            if vf.bound:
+                                with open('/sys/bus/pci/drivers/'
+                                          'mlx5_core/unbind',
+                                          'wt') as f:
+                                    f.write(vf.pci_addr)
+                                rebond.append(vf)
+                        pcidev.devlink_set('eswitch', 'mode', 'switchdev')
+                    finally:
+                        for vf in rebond:
+                            with open('/sys/bus/pci/drivers/mlx5_core/bind',
+                                      'wt') as f:
+                                f.write(vf.pci_addr)
 
 
 def main():
