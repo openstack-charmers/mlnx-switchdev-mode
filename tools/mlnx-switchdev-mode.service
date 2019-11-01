@@ -2,7 +2,7 @@
 Description=Configure Mellanox adapters into switchdev mode
 DefaultDependencies=no
 Before=network.target openvswitch-switch.service
-After=network-pre.target neutron-openvswitch-networking-sriov.service
+After=network-pre.target sriov-netplan-shim.service
 
 [Service]
 Type=oneshot
