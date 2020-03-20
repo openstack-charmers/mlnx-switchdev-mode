@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import mock
+import os
 import unittest
 
 from mlnx_switchdev_mode import sriovify
