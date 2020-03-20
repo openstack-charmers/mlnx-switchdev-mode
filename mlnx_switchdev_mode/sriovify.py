@@ -184,7 +184,7 @@ def netdev_sys(netdev: str, path: str) -> str:
 def build_pci_to_netdev() -> dict:
     """Query PCI device to netdev mappings
 
-    :return: PCI device to to netdev mappings
+    :return: PCI device to netdev mappings
     :rtype: dict[str]
     """
     pci_to_netdev = {}
