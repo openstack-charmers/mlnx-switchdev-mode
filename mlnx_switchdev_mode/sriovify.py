@@ -169,10 +169,24 @@ class PCIDevice(object):
 
 
 def netdev_sys(netdev: str, path: str) -> str:
+    """Build path to netdev file system for a device
+
+    :param netdev: netdev device address
+    :type: str
+    :param path: subpath to use
+    :type: str
+    :return: full path to netdev device
+    :rtype: str
+    """
     return os.path.join("/sys/class/net", netdev, path)
 
 
 def build_pci_to_netdev() -> dict:
+    """Query PCI device to netdev mappings
+
+    :return: PCI device to to netdev mappings
+    :rtype: dict[str]
+    """
     pci_to_netdev = {}
     for netdev in os.listdir("/sys/class/net"):
         try:
@@ -186,6 +200,13 @@ def build_pci_to_netdev() -> dict:
 
 
 def netdev_is_pf(netdev: str) -> bool:
+    """Determine if netdev device is a SR-IOV Physical Function
+
+    :param netdev: netdev device name
+    :type: str
+    :return: whether device is a PF
+    :rtype: bool
+    """
     try:
         return os.path.exists(netdev_sys(netdev, "device/sriov_numvfs"))
     except (FileNotFoundError, NotADirectoryError):
@@ -193,6 +214,13 @@ def netdev_is_pf(netdev: str) -> bool:
 
 
 def netdev_is_vf(netdev: str) -> bool:
+    """Determine if netdev device is a SR-IOV Virtual Function
+
+    :param netdev: netdev device name
+    :type: str
+    :return: whether device is a VF
+    :rtype: bool
+    """
     try:
         return os.path.exists(netdev_sys(netdev, "device/physfn"))
     except (FileNotFoundError, NotADirectoryError):
@@ -200,11 +228,26 @@ def netdev_is_vf(netdev: str) -> bool:
 
 
 def netdev_get_pf_pci(netdev: str) -> str:
+    """Determine SR-IOV PF netdev for a SR-IOV VF netdev
+
+    :param netdev: netdev device name
+    :type: str
+    :return: netdev device for VF's PF
+    :rtype: str
+    :raises: AssertionError if netdev is not a SR-IOV VF
+    """
     assert netdev_is_vf(netdev)
     return os.path.basename(os.readlink(netdev_sys(netdev, "device/physfn")))
 
 
 def netdev_get_driver(netdev: str) -> str:
+    """Determine kernel driver for a netdev device
+
+    :param netdev: netdev device name
+    :type: str
+    :return: Linux kernel driver in use
+    :rtype: str
+    """
     return os.path.basename(os.readlink(netdev_sys(netdev, "device/driver")))
 
 
