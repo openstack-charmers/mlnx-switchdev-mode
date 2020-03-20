@@ -23,6 +23,24 @@ import unittest
 from mlnx_switchdev_mode import sriovify
 
 
+PCI_DEVICES = {
+    "/sys/bus/pci/devices/0000:03:00.1": {
+        "driver": "../../../../bus/pci/drivers/mlx5_core",
+        "sriov_numvfs": 127,
+        "virtfn0": "../0000:03:00.2",
+        "virtfn1": "../0000:03:00.3",
+    },
+    "/sys/bus/pci/devices/0000:03:00.2": {"physfn": "../0000:03:00.1"},
+    "/sys/bus/pci/devices/0000:03:00.3": {
+        "driver": "../../../../bus/pci/drivers/mlx5_core",
+        "physfn": "../0000:03:00.1",
+    },
+    "/sys/bus/pci/devices/0000:01:00.0": {
+        "driver": "../../../../bus/pci/drivers/igb"
+    },
+}
+
+
 NETDEV_DEVICES = {
     "/sys/class/net/eno1": {
         "device": "../../../0000:01:00.0",
@@ -101,6 +119,12 @@ netdev_readlink_helper = functools.partial(
 )
 
 
+pci_exists_helper = functools.partial(_exists_helper, devices=PCI_DEVICES)
+
+
+pci_readlink_helper = functools.partial(_readlink_helper, devices=PCI_DEVICES)
+
+
 class TestNetdevHelpers(unittest.TestCase):
     @mock.patch("os.path.exists", side_effect=netdev_exists_helper)
     @mock.patch("os.readlink", side_effect=netdev_readlink_helper)
@@ -151,30 +175,6 @@ class TestNetdevHelpers(unittest.TestCase):
                 "0000:82:00.1": "/sys/class/net/enp130s0f1",
             },
         )
-
-
-PCI_DEVICES = {
-    "/sys/bus/pci/devices/0000:03:00.1": {
-        "driver": "../../../../bus/pci/drivers/mlx5_core",
-        "sriov_numvfs": 127,
-        "virtfn0": "../0000:03:00.2",
-        "virtfn1": "../0000:03:00.3",
-    },
-    "/sys/bus/pci/devices/0000:03:00.2": {"physfn": "../0000:03:00.1"},
-    "/sys/bus/pci/devices/0000:03:00.3": {
-        "driver": "../../../../bus/pci/drivers/mlx5_core",
-        "physfn": "../0000:03:00.1",
-    },
-    "/sys/bus/pci/devices/0000:01:00.0": {
-        "driver": "../../../../bus/pci/drivers/igb"
-    },
-}
-
-
-pci_exists_helper = functools.partial(_exists_helper, devices=PCI_DEVICES)
-
-
-pci_readlink_helper = functools.partial(_readlink_helper, devices=PCI_DEVICES)
 
 
 class TestPCIDevice(unittest.TestCase):
