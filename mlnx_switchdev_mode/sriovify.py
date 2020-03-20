@@ -22,34 +22,78 @@ import subprocess
 
 
 class PCIDevice(object):
+    """Helper class for interaction with a PCI device"""
+
     def __init__(self, pci_addr: str):
+        """Initialise a new PCI device handler
+
+        :param pci_addr: PCI address of device
+        :type: str
+        """
         self.pci_addr = pci_addr
 
     @property
     def path(self) -> str:
+        """/sys path for PCI device
+
+        :return: full path to PCI device in /sys filesystem
+        :rtype: str
+        """
         return "/sys/bus/pci/devices/{}".format(self.pci_addr)
 
     def subpath(self, subpath: str) -> str:
+        """/sys subpath helper for PCI device
+
+        :param subpath: subpath to construct path for
+        :type: str
+        :return: self.path + subpath
+        :rtype: str
+        """
         return "{}/{}".format(self.path, subpath)
 
     @property
     def driver(self) -> str:
+        """Kernel driver for PCI device
+
+        :return: kernel driver in use for device
+        :rtype: str
+        """
         return os.path.basename(os.readlink(self.subpath("driver")))
 
     @property
     def bound(self) -> bool:
+        """Determine if device is bound to a kernel driver
+
+        :return: whether device is bound to a kernel driver
+        :rtype: bool
+        """
         return os.path.exists(self.subpath("driver"))
 
     @property
     def is_pf(self) -> bool:
+        """Determine if device is a SR-IOV Physical Function
+
+        :return: whether device is a PF
+        :rtype: bool
+        """
         return os.path.exists(self.subpath("sriov_numvfs"))
 
     @property
     def is_vf(self) -> bool:
+        """Determine if device is a SR-IOV Virtual Function
+
+        :return: whether device is a VF
+        :rtype: bool
+        """
         return os.path.exists(self.subpath("physfn"))
 
     @property
-    def vf_addrs(self) -> list:
+    def vf_addrs(self) -> list[str]:
+        """List Virtual Function addresses associated with a Physical Function
+
+        :return: List of PCI addresses of Virtual Functions
+        :rtype: list[str]
+        """
         vf_addrs = []
         i = 0
         while True:
@@ -66,9 +110,21 @@ class PCIDevice(object):
 
     @property
     def vfs(self) -> list:
+        """List Virtual Function associated with a Physical Function
+
+        :return: List of PCI devices of Virtual Functions
+        :rtype: list[PCIDevice]
+        """
         return [PCIDevice(addr) for addr in self.vf_addrs]
 
     def devlink_get(self, obj_name: str):
+        """Query devlink for information about the PCI device
+
+        :param obj_name: devlink object to query
+        :type: str
+        :return: Dictionary of information about the device
+        :rtype: dict
+        """
         out = subprocess.check_output(
             [
                 "/sbin/devlink",
@@ -82,6 +138,15 @@ class PCIDevice(object):
         return json.loads(out)["dev"]["pci/{}".format(self.pci_addr)]
 
     def devlink_set(self, obj_name: str, prop: str, value: str):
+        """Set devlink options for the PCI device
+
+        :param obj_name: devlink object to set options on
+        :type: str
+        :param prop: property to set
+        :type: str
+        :param value: value to set for property
+        :type: str
+        """
         subprocess.check_call(
             [
                 "/sbin/devlink",
@@ -95,6 +160,11 @@ class PCIDevice(object):
         )
 
     def __str__(self) -> str:
+        """String represenation of object
+
+        :return: PCI address of string
+        :rtype: str
+        """
         return self.pci_addr
 
 
