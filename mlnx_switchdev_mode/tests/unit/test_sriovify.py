@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import functools
+import io
 import json
 import mock
 import os
@@ -258,3 +259,32 @@ class TestPCIDevice(unittest.TestCase):
                 "bar",
             ]
         )
+
+
+EXPECTED_OUTPUT = """0000:01:00.0\t/sys/class/net/eno1\tixgbe\t
+0000:01:00.1\t/sys/class/net/eno2\tixgbe\t
+0000:03:00.0\t/sys/class/net/enp3s0f0\tmlx5_core\tPF
+0000:03:00.1\t/sys/class/net/enp3s0f1\tmlx5_core\tPF
+0000:03:00.2\t/sys/class/net/enp3s0f2\tmlx5_core\tVF of /sys/class/net/enp3s0f0
+0000:03:00.3\t/sys/class/net/enp3s0f3\tmlx5_core\tVF of /sys/class/net/enp3s0f1
+0000:05:00.0\t/sys/class/net/eno3\tigb\t
+0000:05:00.1\t/sys/class/net/eno4\tigb\t
+0000:82:00.0\t/sys/class/net/enp130s0f0\tixgbe\tPF
+0000:82:00.1\t/sys/class/net/enp130s0f1\tixgbe\tPF
+"""
+
+
+class TestCommands(unittest.TestCase):
+    @mock.patch("os.listdir", return_value=PCI_DEVICES.keys())
+    @mock.patch("os.path.exists", side_effect=pci_exists_helper)
+    @mock.patch("os.readlink", side_effect=pci_readlink_helper)
+    def test_switch(self, _readlink, _exists, _listdir):
+        sriovify.switch()
+
+    @mock.patch("sys.stdout", new_callable=io.StringIO)
+    @mock.patch("os.listdir", return_value=NETDEV_DEVICES.keys())
+    @mock.patch("os.path.exists", side_effect=netdev_exists_helper)
+    @mock.patch("os.readlink", side_effect=netdev_readlink_helper)
+    def test_show(self, _readlink, _exists, _listdir, _stdout):
+        sriovify.show()
+        self.assertEqual(_stdout.getvalue(), EXPECTED_OUTPUT)
