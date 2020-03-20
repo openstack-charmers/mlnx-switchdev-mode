@@ -49,7 +49,7 @@ class PCIDevice(object):
         :return: self.path + subpath
         :rtype: str
         """
-        return "{}/{}".format(self.path, subpath)
+        return os.path.join(self.path, subpath)
 
     @property
     def driver(self) -> str:
