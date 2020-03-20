@@ -88,7 +88,7 @@ class PCIDevice(object):
         return os.path.exists(self.subpath("physfn"))
 
     @property
-    def vf_addrs(self) -> list[str]:
+    def vf_addrs(self) -> list:
         """List Virtual Function addresses associated with a Physical Function
 
         :return: List of PCI addresses of Virtual Functions
