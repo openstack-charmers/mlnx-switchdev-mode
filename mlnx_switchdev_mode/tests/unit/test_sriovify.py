@@ -17,9 +17,9 @@
 import functools
 import io
 import json
-import mock
 import os
 import unittest
+import unittest.mock as mock
 
 from mlnx_switchdev_mode import sriovify
 
@@ -275,11 +275,98 @@ EXPECTED_OUTPUT = """0000:01:00.0\t/sys/class/net/eno1\tixgbe\t
 
 
 class TestCommands(unittest.TestCase):
-    @mock.patch("os.listdir", return_value=PCI_DEVICES.keys())
-    @mock.patch("os.path.exists", side_effect=pci_exists_helper)
-    @mock.patch("os.readlink", side_effect=pci_readlink_helper)
-    def test_switch(self, _readlink, _exists, _listdir):
+    @mock.patch("builtins.open", new_callable=mock.mock_open)
+    @mock.patch("os.listdir")
+    @mock.patch.object(sriovify, "PCIDevice")
+    def test_switch(self, _pcidevice, _listdir, _open):
+        # NOTE: PF's and VF's
+        _listdir.return_value = [
+            "0000:01:00.0",
+            "0000:03:00.0",
+            "0000:03:00.1",
+            "0000:03:00.2",
+            "0000:03:00.3",
+            "0000:03:00.4",
+        ]
+        mockPCIDeviceVF = mock.MagicMock()
+        mockPCIDeviceVF.driver = "mlx5_core"
+        mockPCIDeviceVF.is_pf = False
+        mockPCIDeviceVF.pci_addr = "0000:03:00.2"
+        mockPCIDeviceVF.bound = True
+        mockPCIDeviceVF.__str__.return_value = mockPCIDeviceVF.pci_addr
+
+        mockPCIDeviceVF3 = mock.MagicMock()
+        mockPCIDeviceVF3.driver = "mlx5_core"
+        mockPCIDeviceVF3.is_pf = False
+        mockPCIDeviceVF3.pci_addr = "0000:03:00.4"
+        mockPCIDeviceVF3.bound = True
+        mockPCIDeviceVF3.__str__.return_value = mockPCIDeviceVF3.pci_addr
+
+        mockPCIDeviceVF2 = mock.MagicMock()
+        mockPCIDeviceVF2.driver = "mlx5_core"
+        mockPCIDeviceVF2.is_pf = False
+        mockPCIDeviceVF2.pci_addr = "0000:03:00.3"
+        mockPCIDeviceVF2.bound = True
+        mockPCIDeviceVF2.__str__.return_value = mockPCIDeviceVF.pci_addr
+
+        # PF with VFs not in switchdev mode
+        mockPCIDevicePF = mock.MagicMock()
+        mockPCIDevicePF.driver = "mlx5_core"
+        mockPCIDevicePF.is_pf = True
+        mockPCIDevicePF.vfs = [mockPCIDeviceVF, mockPCIDeviceVF3]
+        mockPCIDevicePF.pci_addr = "0000:03:00.0"
+        mockPCIDevicePF.devlink_get.return_value = {"mode": "legacy"}
+        mockPCIDevicePF.__str__.return_value = mockPCIDevicePF.pci_addr
+
+        # PF already in switchdev mode
+        mockPCIDevicePF2 = mock.MagicMock()
+        mockPCIDevicePF2.driver = "mlx5_core"
+        mockPCIDevicePF2.is_pf = True
+        mockPCIDevicePF2.vfs = [mockPCIDeviceVF2]
+        mockPCIDevicePF2.pci_addr = "0000:03:00.1"
+        mockPCIDevicePF2.devlink_get.return_value = {"mode": "switchdev"}
+        mockPCIDevicePF2.__str__.return_value = mockPCIDevicePF2.pci_addr
+
+        # PF with igbxe driver
+        mockPCIDevicePFAlt = mock.MagicMock()
+        mockPCIDevicePFAlt.driver = "igbxe"
+        mockPCIDevicePFAlt.is_pf = True
+        mockPCIDevicePFAlt.vfs = []
+        mockPCIDevicePFAlt.pci_addr = "0000:01:00.0"
+        mockPCIDevicePFAlt.devlink_get.return_value = {"mode": "legacy"}
+        mockPCIDevicePFAlt.__str__.return_value = mockPCIDevicePFAlt.pci_addr
+
+        _pcidevice.side_effect = [
+            mockPCIDevicePFAlt,
+            mockPCIDevicePF,
+            mockPCIDevicePF2,
+            mockPCIDeviceVF,
+            mockPCIDeviceVF2,
+            mockPCIDeviceVF3,
+        ]
+
         sriovify.switch()
+
+        mockPCIDevicePF.devlink_set.assert_called_with(
+            "eswitch", "mode", "switchdev"
+        )
+
+        # NOTE: device already in switchdev mode
+        mockPCIDevicePF2.devlink_set.assert_not_called()
+        # NOTE: not a mlx5_core driven device
+        mockPCIDevicePFAlt.devlink_set.assert_not_called()
+
+        _open.assert_called_with("/sys/bus/pci/drivers/mlx5_core/bind", "wt")
+        handle = _open()
+        self.assertEqual(
+            handle.write.mock_calls,
+            [
+                mock.call("0000:03:00.2"),
+                mock.call("0000:03:00.4"),
+                mock.call("0000:03:00.2"),
+                mock.call("0000:03:00.4"),
+            ],
+        )
 
     @mock.patch("sys.stdout", new_callable=io.StringIO)
     @mock.patch("os.listdir", return_value=NETDEV_DEVICES.keys())

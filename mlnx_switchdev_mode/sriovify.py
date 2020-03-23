@@ -281,7 +281,7 @@ def switch():
                         for vf in pcidev.vfs:
                             if vf.bound:
                                 with open(
-                                    "/sys/bus/pci/drivers/" "mlx5_core/unbind",
+                                    "/sys/bus/pci/drivers/mlx5_core/unbind",
                                     "wt",
                                 ) as f:
                                     f.write(vf.pci_addr)
