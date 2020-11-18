@@ -327,6 +327,15 @@ class TestCommands(unittest.TestCase):
         mockPCIDevicePF2.devlink_get.return_value = {"mode": "switchdev"}
         mockPCIDevicePF2.__str__.return_value = mockPCIDevicePF2.pci_addr
 
+        # PF that does not have SR-IOV mode enabled at all
+        mockPCIDevicePF3 = mock.MagicMock()
+        mockPCIDevicePF3.driver = "mlx5_core"
+        mockPCIDevicePF3.is_pf = False
+        mockPCIDevicePF3.is_vf = False
+        mockPCIDevicePF3.pci_addr = "0000:04:00.0"
+        mockPCIDevicePF3.devlink_get.side_effect = Exception
+        mockPCIDevicePF3.__str__.return_value = mockPCIDevicePF3.pci_addr
+
         # PF with igbxe driver
         mockPCIDevicePFAlt = mock.MagicMock()
         mockPCIDevicePFAlt.driver = "igbxe"
@@ -337,14 +346,21 @@ class TestCommands(unittest.TestCase):
         mockPCIDevicePFAlt.__str__.return_value = mockPCIDevicePFAlt.pci_addr
 
         _pcidevice.side_effect = [
+            mockPCIDevicePF3,
+        ]
+
+        with self.assertRaises(sriovify.SRIOVModeNotEnabled):
+            sriovify.switch(werror=True)
+
+        _pcidevice.side_effect = [
             mockPCIDevicePFAlt,
             mockPCIDevicePF,
             mockPCIDevicePF2,
+            mockPCIDevicePF3,
             mockPCIDeviceVF,
             mockPCIDeviceVF2,
             mockPCIDeviceVF3,
         ]
-
         sriovify.switch()
 
         mockPCIDevicePF.devlink_set.assert_called_with(

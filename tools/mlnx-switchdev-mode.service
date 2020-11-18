@@ -5,9 +5,10 @@ Before=network.target openvswitch-switch.service
 After=network-pre.target sriov-netplan-shim.service
 
 [Service]
+EnvironmentFile=-/etc/default/mlnx-switchdev-mode
 Type=oneshot
 KillMode=none
-ExecStart=/usr/bin/mlnx-switchdev-mode switch
+ExecStart=/usr/bin/mlnx-switchdev-mode switch $MLNX_SWITCHDEV_MODE_OPTS
 TimeoutSec=0
 
 [Install]
