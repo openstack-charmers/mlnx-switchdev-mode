@@ -4,9 +4,6 @@ language: python
 install: pip install tox-travis
 matrix:
   include:
-    - name: "Python 3.5"
-      python: 3.5
-      env: ENV=pep8,py3
     - name: "Python 3.6"
       python: 3.6
       env: ENV=pep8,py3
