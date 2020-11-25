@@ -275,7 +275,7 @@ class SRIOVModeNotEnabled(Exception):
     pass
 
 
-def switch(werror=False):
+def switch(werror=False, rebind=False):
     """Configure capable devices into switchdev mode"""
     for pci_addr in os.listdir("/sys/bus/pci/devices"):
         pcidev = PCIDevice(pci_addr)
@@ -294,7 +294,7 @@ def switch(werror=False):
             print("{}: {}".format(pcidev, pcidev.vfs))
             if pcidev.vfs:
                 if pcidev.devlink_get("eswitch")["mode"] == "legacy":
-                    rebond = []
+                    unbound_vfs = []
                     try:
                         for vf in pcidev.vfs:
                             if vf.bound:
@@ -303,14 +303,15 @@ def switch(werror=False):
                                     "wt",
                                 ) as f:
                                     f.write(vf.pci_addr)
-                                rebond.append(vf)
+                                    unbound_vfs.append(vf)
                         pcidev.devlink_set("eswitch", "mode", "switchdev")
                     finally:
-                        for vf in rebond:
-                            with open(
-                                "/sys/bus/pci/drivers/mlx5_core/bind", "wt"
-                            ) as f:
-                                f.write(vf.pci_addr)
+                        if rebind:
+                            for vf in unbound_vfs:
+                                with open(
+                                    "/sys/bus/pci/drivers/mlx5_core/bind", "wt"
+                                ) as f:
+                                    f.write(vf.pci_addr)
 
 
 def main():
@@ -333,7 +334,14 @@ def main():
     switch_subparser.add_argument('--warning-as-error', dest='werror',
                                   action='store_true',
                                   help='Treat warnings as errors')
-    switch_subparser.set_defaults(func=switch, werror=False)
+    switch_subparser.add_argument('--rebind-vfs', dest='rebind',
+                                  action='store_true',
+                                  help=('Rebind VFs to mlx5_core driver after '
+                                        'switch to switchdev mode. Do not use '
+                                        'when bonding/VF LAG is in use, do '
+                                        'manual rebinding after bonding '
+                                        'configured instead.'))
+    switch_subparser.set_defaults(func=switch, werror=False, rebind=False)
 
     args = parser.parse_args()
 
@@ -341,7 +349,7 @@ def main():
 
     try:
         if args.func == switch:
-            args.func(werror=args.werror)
+            args.func(werror=args.werror, rebind=args.rebind)
         else:
             args.func()
     except Exception as e:

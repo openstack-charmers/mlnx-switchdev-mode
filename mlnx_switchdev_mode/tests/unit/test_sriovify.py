@@ -372,7 +372,45 @@ class TestCommands(unittest.TestCase):
         # NOTE: not a mlx5_core driven device
         mockPCIDevicePFAlt.devlink_set.assert_not_called()
 
-        _open.assert_called_with("/sys/bus/pci/drivers/mlx5_core/bind", "wt")
+        _open.assert_called_with("/sys/bus/pci/drivers/mlx5_core/unbind", "wt")
+        handle = _open()
+        self.assertEqual(
+            handle.write.mock_calls,
+            [
+                mock.call("0000:03:00.2"),
+                mock.call("0000:03:00.4"),
+            ],
+        )
+
+        # Test with rebind
+        mockPCIDevicePF.reset_mock()
+        mockPCIDevicePF2.reset_mock()
+        mockPCIDevicePFAlt.reset_mock()
+        _open.reset_mock()
+        _pcidevice.side_effect = [
+            mockPCIDevicePFAlt,
+            mockPCIDevicePF,
+            mockPCIDevicePF2,
+            mockPCIDevicePF3,
+            mockPCIDeviceVF,
+            mockPCIDeviceVF2,
+            mockPCIDeviceVF3,
+        ]
+        sriovify.switch(rebind=True)
+
+        mockPCIDevicePF.devlink_set.assert_called_with(
+            "eswitch", "mode", "switchdev"
+        )
+
+        # NOTE: device already in switchdev mode
+        mockPCIDevicePF2.devlink_set.assert_not_called()
+        # NOTE: not a mlx5_core driven device
+        mockPCIDevicePFAlt.devlink_set.assert_not_called()
+
+        _open.assert_has_calls([
+            mock.call("/sys/bus/pci/drivers/mlx5_core/unbind", "wt"),
+            mock.call("/sys/bus/pci/drivers/mlx5_core/bind", "wt"),
+        ], any_order=True)
         handle = _open()
         self.assertEqual(
             handle.write.mock_calls,
