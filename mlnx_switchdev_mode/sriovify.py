@@ -58,7 +58,10 @@ class PCIDevice(object):
         :return: kernel driver in use for device
         :rtype: str
         """
-        return os.path.basename(os.readlink(self.subpath("driver")))
+        driver = ''
+        if os.path.exists(self.subpath("driver")):
+            driver = os.path.basename(os.readlink(self.subpath("driver")))
+        return driver
 
     @property
     def bound(self) -> bool:
@@ -268,15 +271,30 @@ def show():
         )
 
 
-def switch():
+class SRIOVModeNotEnabled(Exception):
+    pass
+
+
+def switch(werror=False, rebind=False):
     """Configure capable devices into switchdev mode"""
     for pci_addr in os.listdir("/sys/bus/pci/devices"):
         pcidev = PCIDevice(pci_addr)
-        if pcidev.is_pf and pcidev.driver == "mlx5_core":
+        if pcidev.driver == "mlx5_core":
+            if not pcidev.is_pf:
+                if not pcidev.is_vf:
+                    # We have found a MLX5 card that does not appear to be in
+                    # SR-IOV mode. This is a pre-requisite for this to work so
+                    # print a warning or raise an error.
+                    msg = ('SR-IOV mode not enabled for card {}'
+                           .format(pci_addr))
+                    if werror:
+                        raise SRIOVModeNotEnabled(msg)
+                    print(msg)
+                continue
             print("{}: {}".format(pcidev, pcidev.vfs))
             if pcidev.vfs:
                 if pcidev.devlink_get("eswitch")["mode"] == "legacy":
-                    rebond = []
+                    unbound_vfs = []
                     try:
                         for vf in pcidev.vfs:
                             if vf.bound:
@@ -285,14 +303,15 @@ def switch():
                                     "wt",
                                 ) as f:
                                     f.write(vf.pci_addr)
-                                rebond.append(vf)
+                                    unbound_vfs.append(vf)
                         pcidev.devlink_set("eswitch", "mode", "switchdev")
                     finally:
-                        for vf in rebond:
-                            with open(
-                                "/sys/bus/pci/drivers/mlx5_core/bind", "wt"
-                            ) as f:
-                                f.write(vf.pci_addr)
+                        if rebind:
+                            for vf in unbound_vfs:
+                                with open(
+                                    "/sys/bus/pci/drivers/mlx5_core/bind", "wt"
+                                ) as f:
+                                    f.write(vf.pci_addr)
 
 
 def main():
@@ -312,13 +331,26 @@ def main():
         "switch",
         help="Switch switchdev capable network adapters to switchdev mode",
     )
-    switch_subparser.set_defaults(func=switch)
+    switch_subparser.add_argument('--warning-as-error', dest='werror',
+                                  action='store_true',
+                                  help='Treat warnings as errors')
+    switch_subparser.add_argument('--rebind-vfs', dest='rebind',
+                                  action='store_true',
+                                  help=('Rebind VFs to mlx5_core driver after '
+                                        'switch to switchdev mode. Do not use '
+                                        'when bonding/VF LAG is in use, do '
+                                        'manual rebinding after bonding '
+                                        'configured instead.'))
+    switch_subparser.set_defaults(func=switch, werror=False, rebind=False)
 
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
 
     try:
-        args.func()
+        if args.func == switch:
+            args.func(werror=args.werror, rebind=args.rebind)
+        else:
+            args.func()
     except Exception as e:
         raise SystemExit("{prog}: {msg}".format(prog=args.prog, msg=e))
