@@ -1,0 +1,16 @@
+[Unit]
+Description=Bind Virtual Functions of Mellanox adapters to mlx5_core driver
+DefaultDependencies=no
+Requires=mlnx-switchdev-mode.service
+After=network.target mlnx-switchdev-mode.service
+Before=openvswitch-switch.service
+
+[Service]
+EnvironmentFile=-/etc/default/mlnx-switchdev-mode
+Type=oneshot
+KillMode=none
+ExecStart=/usr/bin/mlnx-switchdev-mode bind $MLNX_BIND_VFS_OPTS
+TimeoutSec=0
+
+[Install]
+WantedBy=multi-user.target
