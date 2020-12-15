@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import subprocess
+import typing
 
 
 class PCIDevice(object):
@@ -275,6 +276,42 @@ class SRIOVModeNotEnabled(Exception):
     pass
 
 
+def bind_vfs(vfs: typing.Iterable[PCIDevice]):
+    """Bind unbound VFs to mlx5_core driver."""
+    bound_vfs = []
+    for vf in vfs:
+        if not vf.bound:
+            with open(
+                "/sys/bus/pci/drivers/mlx5_core/bind", "wt"
+            ) as f:
+                f.write(vf.pci_addr)
+                bound_vfs.append(vf)
+    return bound_vfs
+
+
+def unbind_vfs(vfs: typing.Iterable[PCIDevice]) -> typing.Iterable[PCIDevice]:
+    """Unbind bound VFs from mlx5_core driver."""
+    unbound_vfs = []
+    for vf in vfs:
+        if vf.bound:
+            with open(
+                "/sys/bus/pci/drivers/mlx5_core/unbind",
+                "wt",
+            ) as f:
+                f.write(vf.pci_addr)
+                unbound_vfs.append(vf)
+    return unbound_vfs
+
+
+def bind():
+    """Bind VFs of devices in switchdev mode to mlx5_core driver."""
+    for pci_addr in os.listdir("/sys/bus/pci/devices"):
+        pcidev = PCIDevice(pci_addr)
+        if pcidev.driver == "mlx5_core" and pcidev.is_pf:
+            bound_vfs = bind_vfs(pcidev.vfs)
+            print("{}: bound {} VFs".format(pcidev, len(bound_vfs)))
+
+
 def switch(werror=False, rebind=False):
     """Configure capable devices into switchdev mode"""
     for pci_addr in os.listdir("/sys/bus/pci/devices"):
@@ -296,22 +333,11 @@ def switch(werror=False, rebind=False):
                 if pcidev.devlink_get("eswitch")["mode"] == "legacy":
                     unbound_vfs = []
                     try:
-                        for vf in pcidev.vfs:
-                            if vf.bound:
-                                with open(
-                                    "/sys/bus/pci/drivers/mlx5_core/unbind",
-                                    "wt",
-                                ) as f:
-                                    f.write(vf.pci_addr)
-                                    unbound_vfs.append(vf)
+                        unbound_vfs = unbind_vfs(pcidev.vfs)
                         pcidev.devlink_set("eswitch", "mode", "switchdev")
                     finally:
                         if rebind:
-                            for vf in unbound_vfs:
-                                with open(
-                                    "/sys/bus/pci/drivers/mlx5_core/bind", "wt"
-                                ) as f:
-                                    f.write(vf.pci_addr)
+                            bind_vfs(unbound_vfs)
 
 
 def main():
@@ -342,6 +368,12 @@ def main():
                                         'manual rebinding after bonding '
                                         'configured instead.'))
     switch_subparser.set_defaults(func=switch, werror=False, rebind=False)
+
+    bind_subparser = subparsers.add_parser(
+        "bind",
+        help="Bind unbound VFs back to mlx5_core driver.",
+    )
+    bind_subparser.set_defaults(func=bind)
 
     args = parser.parse_args()
 

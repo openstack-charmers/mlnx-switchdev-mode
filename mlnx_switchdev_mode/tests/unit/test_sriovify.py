@@ -275,103 +275,106 @@ EXPECTED_OUTPUT = """0000:01:00.0\t/sys/class/net/eno1\tixgbe\t
 
 
 class TestCommands(unittest.TestCase):
-    @mock.patch("builtins.open", new_callable=mock.mock_open)
-    @mock.patch("os.listdir")
-    @mock.patch.object(sriovify, "PCIDevice")
-    def test_switch(self, _pcidevice, _listdir, _open):
-        # NOTE: PF's and VF's
-        _listdir.return_value = [
-            "0000:01:00.0",
-            "0000:03:00.0",
-            "0000:03:00.1",
-            "0000:03:00.2",
-            "0000:03:00.3",
-            "0000:03:00.4",
-        ]
-        mockPCIDeviceVF = mock.MagicMock()
-        mockPCIDeviceVF.driver = "mlx5_core"
-        mockPCIDeviceVF.is_pf = False
-        mockPCIDeviceVF.pci_addr = "0000:03:00.2"
-        mockPCIDeviceVF.bound = True
-        mockPCIDeviceVF.__str__.return_value = mockPCIDeviceVF.pci_addr
 
-        mockPCIDeviceVF3 = mock.MagicMock()
-        mockPCIDeviceVF3.driver = "mlx5_core"
-        mockPCIDeviceVF3.is_pf = False
-        mockPCIDeviceVF3.pci_addr = "0000:03:00.4"
-        mockPCIDeviceVF3.bound = True
-        mockPCIDeviceVF3.__str__.return_value = mockPCIDeviceVF3.pci_addr
+    def setUp(self):
+        self.mockPCIDeviceVF = mock.MagicMock()
+        self.mockPCIDeviceVF.driver = "mlx5_core"
+        self.mockPCIDeviceVF.is_pf = False
+        self.mockPCIDeviceVF.pci_addr = "0000:03:00.2"
+        self.mockPCIDeviceVF.bound = True
+        self.mockPCIDeviceVF.__str__.return_value = (
+            self.mockPCIDeviceVF.pci_addr)
 
-        mockPCIDeviceVF2 = mock.MagicMock()
-        mockPCIDeviceVF2.driver = "mlx5_core"
-        mockPCIDeviceVF2.is_pf = False
-        mockPCIDeviceVF2.pci_addr = "0000:03:00.3"
-        mockPCIDeviceVF2.bound = True
-        mockPCIDeviceVF2.__str__.return_value = mockPCIDeviceVF.pci_addr
+        self.mockPCIDeviceVF3 = mock.MagicMock()
+        self.mockPCIDeviceVF3.driver = "mlx5_core"
+        self.mockPCIDeviceVF3.is_pf = False
+        self.mockPCIDeviceVF3.pci_addr = "0000:03:00.4"
+        self.mockPCIDeviceVF3.bound = True
+        self.mockPCIDeviceVF3.__str__.return_value = (
+            self.mockPCIDeviceVF3.pci_addr)
+
+        self.mockPCIDeviceVF2 = mock.MagicMock()
+        self.mockPCIDeviceVF2.driver = "mlx5_core"
+        self.mockPCIDeviceVF2.is_pf = False
+        self.mockPCIDeviceVF2.pci_addr = "0000:03:00.3"
+        self.mockPCIDeviceVF2.bound = True
+        self.mockPCIDeviceVF2.__str__.return_value = (
+            self.mockPCIDeviceVF.pci_addr)
 
         # PF with VFs not in switchdev mode
-        mockPCIDevicePF = mock.MagicMock()
-        mockPCIDevicePF.driver = "mlx5_core"
-        mockPCIDevicePF.is_pf = True
-        mockPCIDevicePF.vfs = [mockPCIDeviceVF, mockPCIDeviceVF3]
-        mockPCIDevicePF.pci_addr = "0000:03:00.0"
-        mockPCIDevicePF.devlink_get.return_value = {"mode": "legacy"}
-        mockPCIDevicePF.__str__.return_value = mockPCIDevicePF.pci_addr
+        self.mockPCIDevicePF = mock.MagicMock()
+        self.mockPCIDevicePF.driver = "mlx5_core"
+        self.mockPCIDevicePF.is_pf = True
+        self.mockPCIDevicePF.vfs = [
+            self.mockPCIDeviceVF,
+            self.mockPCIDeviceVF3,
+        ]
+        self.mockPCIDevicePF.pci_addr = "0000:03:00.0"
+        self.mockPCIDevicePF.devlink_get.return_value = {"mode": "legacy"}
+        self.mockPCIDevicePF.__str__.return_value = (
+            self.mockPCIDevicePF.pci_addr)
 
         # PF already in switchdev mode
-        mockPCIDevicePF2 = mock.MagicMock()
-        mockPCIDevicePF2.driver = "mlx5_core"
-        mockPCIDevicePF2.is_pf = True
-        mockPCIDevicePF2.vfs = [mockPCIDeviceVF2]
-        mockPCIDevicePF2.pci_addr = "0000:03:00.1"
-        mockPCIDevicePF2.devlink_get.return_value = {"mode": "switchdev"}
-        mockPCIDevicePF2.__str__.return_value = mockPCIDevicePF2.pci_addr
+        self.mockPCIDevicePF2 = mock.MagicMock()
+        self.mockPCIDevicePF2.driver = "mlx5_core"
+        self.mockPCIDevicePF2.is_pf = True
+        self.mockPCIDevicePF2.vfs = [self.mockPCIDeviceVF2]
+        self.mockPCIDevicePF2.pci_addr = "0000:03:00.1"
+        self.mockPCIDevicePF2.devlink_get.return_value = {"mode": "switchdev"}
+        self.mockPCIDevicePF2.__str__.return_value = (
+            self.mockPCIDevicePF2.pci_addr)
 
         # PF that does not have SR-IOV mode enabled at all
-        mockPCIDevicePF3 = mock.MagicMock()
-        mockPCIDevicePF3.driver = "mlx5_core"
-        mockPCIDevicePF3.is_pf = False
-        mockPCIDevicePF3.is_vf = False
-        mockPCIDevicePF3.pci_addr = "0000:04:00.0"
-        mockPCIDevicePF3.devlink_get.side_effect = Exception
-        mockPCIDevicePF3.__str__.return_value = mockPCIDevicePF3.pci_addr
+        self.mockPCIDevicePF3 = mock.MagicMock()
+        self.mockPCIDevicePF3.driver = "mlx5_core"
+        self.mockPCIDevicePF3.is_pf = False
+        self.mockPCIDevicePF3.is_vf = False
+        self.mockPCIDevicePF3.pci_addr = "0000:04:00.0"
+        self.mockPCIDevicePF3.devlink_get.side_effect = Exception
+        self.mockPCIDevicePF3.__str__.return_value = (
+            self.mockPCIDevicePF3.pci_addr)
 
         # PF with igbxe driver
-        mockPCIDevicePFAlt = mock.MagicMock()
-        mockPCIDevicePFAlt.driver = "igbxe"
-        mockPCIDevicePFAlt.is_pf = True
-        mockPCIDevicePFAlt.vfs = []
-        mockPCIDevicePFAlt.pci_addr = "0000:01:00.0"
-        mockPCIDevicePFAlt.devlink_get.return_value = {"mode": "legacy"}
-        mockPCIDevicePFAlt.__str__.return_value = mockPCIDevicePFAlt.pci_addr
+        self.mockPCIDevicePFAlt = mock.MagicMock()
+        self.mockPCIDevicePFAlt.driver = "igbxe"
+        self.mockPCIDevicePFAlt.is_pf = True
+        self.mockPCIDevicePFAlt.vfs = []
+        self.mockPCIDevicePFAlt.pci_addr = "0000:01:00.0"
+        self.mockPCIDevicePFAlt.devlink_get.return_value = {"mode": "legacy"}
+        self.mockPCIDevicePFAlt.__str__.return_value = (
+            self.mockPCIDevicePFAlt.pci_addr)
 
-        _pcidevice.side_effect = [
-            mockPCIDevicePF3,
-        ]
-
-        with self.assertRaises(sriovify.SRIOVModeNotEnabled):
-            sriovify.switch(werror=True)
-
-        _pcidevice.side_effect = [
-            mockPCIDevicePFAlt,
-            mockPCIDevicePF,
-            mockPCIDevicePF2,
-            mockPCIDevicePF3,
-            mockPCIDeviceVF,
-            mockPCIDeviceVF2,
-            mockPCIDeviceVF3,
-        ]
-        sriovify.switch()
-
-        mockPCIDevicePF.devlink_set.assert_called_with(
-            "eswitch", "mode", "switchdev"
+    @mock.patch("builtins.open", new_callable=mock.mock_open)
+    def test_bind_vfs(self, _open):
+        # verify that already bound VFs will not be attempted rebound
+        sriovify.bind_vfs(self.mockPCIDevicePF.vfs)
+        self.assertFalse(_open.called)
+        # present unbound VFs and confirm they will be bound
+        self.mockPCIDeviceVF.bound = False
+        self.mockPCIDeviceVF3.bound = False
+        sriovify.bind_vfs(self.mockPCIDevicePF.vfs)
+        _open.assert_called_with(
+            "/sys/bus/pci/drivers/mlx5_core/bind", "wt")
+        handle = _open()
+        self.assertEqual(
+            handle.write.mock_calls,
+            [
+                mock.call("0000:03:00.2"),
+                mock.call("0000:03:00.4"),
+            ],
         )
 
-        # NOTE: device already in switchdev mode
-        mockPCIDevicePF2.devlink_set.assert_not_called()
-        # NOTE: not a mlx5_core driven device
-        mockPCIDevicePFAlt.devlink_set.assert_not_called()
-
+    @mock.patch("builtins.open", new_callable=mock.mock_open)
+    def test_unbind_vfs(self, _open):
+        # verify that already unbound VFs will not be attempted unbound again
+        self.mockPCIDeviceVF.bound = False
+        self.mockPCIDeviceVF3.bound = False
+        sriovify.unbind_vfs(self.mockPCIDevicePF.vfs)
+        self.assertFalse(_open.called)
+        # present bound VFs and confirm they will be unbound
+        self.mockPCIDeviceVF.bound = True
+        self.mockPCIDeviceVF3.bound = True
+        sriovify.unbind_vfs(self.mockPCIDevicePF.vfs)
         _open.assert_called_with("/sys/bus/pci/drivers/mlx5_core/unbind", "wt")
         handle = _open()
         self.assertEqual(
@@ -382,45 +385,115 @@ class TestCommands(unittest.TestCase):
             ],
         )
 
-        # Test with rebind
-        mockPCIDevicePF.reset_mock()
-        mockPCIDevicePF2.reset_mock()
-        mockPCIDevicePFAlt.reset_mock()
-        _open.reset_mock()
-        _pcidevice.side_effect = [
-            mockPCIDevicePFAlt,
-            mockPCIDevicePF,
-            mockPCIDevicePF2,
-            mockPCIDevicePF3,
-            mockPCIDeviceVF,
-            mockPCIDeviceVF2,
-            mockPCIDeviceVF3,
+    @mock.patch.object(sriovify, "bind_vfs")
+    @mock.patch("os.listdir")
+    @mock.patch.object(sriovify, "PCIDevice")
+    def test_bind(self, _pcidevice, _listdir, _bind_vfs):
+        # NOTE: PF's and VF's
+        _listdir.return_value = [
+            "0000:01:00.0",
+            "0000:03:00.0",
+            "0000:03:00.1",
+            "0000:03:00.2",
+            "0000:03:00.3",
+            "0000:03:00.4",
         ]
-        sriovify.switch(rebind=True)
+        _pcidevice.side_effect = [
+            self.mockPCIDevicePFAlt,
+            self.mockPCIDevicePF,
+            self.mockPCIDevicePF2,
+            self.mockPCIDevicePF3,
+            self.mockPCIDeviceVF,
+            self.mockPCIDeviceVF2,
+            self.mockPCIDeviceVF3,
+        ]
+        # for printing accurate number of bound VFs during test
+        _bind_vfs.side_effect = [
+            [1, 1],
+            [1],
+        ]
+        sriovify.bind()
+        _bind_vfs.assert_has_calls([
+            mock.call([self.mockPCIDeviceVF, self.mockPCIDeviceVF3]),
+            mock.call([self.mockPCIDeviceVF2]),
+        ], any_order=True)
 
-        mockPCIDevicePF.devlink_set.assert_called_with(
+    @mock.patch.object(sriovify, "unbind_vfs")
+    @mock.patch.object(sriovify, "bind_vfs")
+    @mock.patch("os.listdir")
+    @mock.patch.object(sriovify, "PCIDevice")
+    def test_switch(self, _pcidevice, _listdir, _bind_vfs, _unbind_vfs):
+        # NOTE: PF's and VF's
+        _listdir.return_value = [
+            "0000:01:00.0",
+            "0000:03:00.0",
+            "0000:03:00.1",
+            "0000:03:00.2",
+            "0000:03:00.3",
+            "0000:03:00.4",
+        ]
+
+        _pcidevice.side_effect = [
+            self.mockPCIDevicePF3,
+        ]
+
+        with self.assertRaises(sriovify.SRIOVModeNotEnabled):
+            sriovify.switch(werror=True)
+
+        _pcidevice.side_effect = [
+            self.mockPCIDevicePFAlt,
+            self.mockPCIDevicePF,
+            self.mockPCIDevicePF2,
+            self.mockPCIDevicePF3,
+            self.mockPCIDeviceVF,
+            self.mockPCIDeviceVF2,
+            self.mockPCIDeviceVF3,
+        ]
+        sriovify.switch()
+
+        _unbind_vfs.assert_called_once_with([
+            self.mockPCIDeviceVF,
+            self.mockPCIDeviceVF3,
+        ])
+        self.assertFalse(_bind_vfs.called)
+        self.mockPCIDevicePF.devlink_set.assert_called_with(
             "eswitch", "mode", "switchdev"
         )
 
         # NOTE: device already in switchdev mode
-        mockPCIDevicePF2.devlink_set.assert_not_called()
+        self.mockPCIDevicePF2.devlink_set.assert_not_called()
         # NOTE: not a mlx5_core driven device
-        mockPCIDevicePFAlt.devlink_set.assert_not_called()
+        self.mockPCIDevicePFAlt.devlink_set.assert_not_called()
 
-        _open.assert_has_calls([
-            mock.call("/sys/bus/pci/drivers/mlx5_core/unbind", "wt"),
-            mock.call("/sys/bus/pci/drivers/mlx5_core/bind", "wt"),
-        ], any_order=True)
-        handle = _open()
-        self.assertEqual(
-            handle.write.mock_calls,
-            [
-                mock.call("0000:03:00.2"),
-                mock.call("0000:03:00.4"),
-                mock.call("0000:03:00.2"),
-                mock.call("0000:03:00.4"),
-            ],
+        # Test with rebind
+        _unbind_vfs.reset_mock()
+        self.mockPCIDevicePF.reset_mock()
+        self.mockPCIDevicePF2.reset_mock()
+        self.mockPCIDevicePFAlt.reset_mock()
+        _pcidevice.side_effect = [
+            self.mockPCIDevicePFAlt,
+            self.mockPCIDevicePF,
+            self.mockPCIDevicePF2,
+            self.mockPCIDevicePF3,
+            self.mockPCIDeviceVF,
+            self.mockPCIDeviceVF2,
+            self.mockPCIDeviceVF3,
+        ]
+        sriovify.switch(rebind=True)
+
+        _unbind_vfs.assert_called_once_with([
+            self.mockPCIDeviceVF,
+            self.mockPCIDeviceVF3,
+        ])
+        self.mockPCIDevicePF.devlink_set.assert_called_with(
+            "eswitch", "mode", "switchdev"
         )
+        _bind_vfs.assert_called_once_with(_unbind_vfs())
+
+        # NOTE: device already in switchdev mode
+        self.mockPCIDevicePF2.devlink_set.assert_not_called()
+        # NOTE: not a mlx5_core driven device
+        self.mockPCIDevicePFAlt.devlink_set.assert_not_called()
 
     @mock.patch("sys.stdout", new_callable=io.StringIO)
     @mock.patch("os.listdir", return_value=NETDEV_DEVICES.keys())

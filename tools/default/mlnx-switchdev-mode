@@ -1,4 +1,7 @@
 # Default settings for mlnx-switchdev-mode. This is a systemd EnvironmentFile.
 
-# Options to pass to mlnx-switchdev-mode
+# Options to pass to mlnx-switchdev-mode switch operation
 MLNX_SWITCHDEV_MODE_OPTS=--warning-as-error
+
+# Options to pass to mlnx-switchdev-mode bind operation
+MLNX_BIND_VFS_OPTS=
